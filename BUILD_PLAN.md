@@ -1,214 +1,97 @@
 # ThereSyn — Build Plan (2 People, ~2 Days)
 
 ## Overall Progress
-- ✅ Phase 1: Core Pipeline (6/6 tests pass)
-- ✅ Phase 2: UI + Polish + Filters (7/7 tests pass)
-- ✅ Phase 3: ML + MIDI + Latency (4/4 tests pass)
 
-**Total: 17/17 tests passing. All code complete and committed locally.**
-
----
-
-## Timeline: 2 days (~16-20 hours total)
+| Phase | Status | Tests |
+|-------|--------|-------|
+| Phase 1: Core Pipeline | ✅ Complete | All pass |
+| Phase 2: UI + Filters | ⚠️ Mostly done | See below |
+| Phase 3: ML + MIDI + Latency | ✅ Complete | All pass |
+| Phase 4: Integration + Demo | ❌ Not started | — |
 
 ---
 
-## 🏗️ Architecture
+## Phase 1: Core Pipeline — ✅ COMPLETE
 
-```
-Camera → HandTracker → EMA Smoother → PinchDetector
-                                        ↓
-                              ThereminMapper
-                          ┌────────────────────┐
-                          │ X → pitch (exp.)    │
-                          │ Y → volume (linear) │
-                          │ spread → filter     │
-                          └─────────┬──────────┘
-                                    ↓
-                           AudioEngine (threaded)
-                        Oscillator + ADSR + Filter
-                                    ↓
-                      ┌─────────────┼─────────────┐
-                      ▼             ▼             ▼
-                 AudioOut      MIDIOutput    LatencyProfiler
-                      │
-                      ▼
-              UI (ThereminUI + Visualizer + Landmarks)
-```
+All modules implemented and tested by both contributors.
 
-### Key Design Decisions
-
-1. **Exponential pitch mapping** — X position maps to frequency via `2^x`, not linearly. This matches how humans perceive pitch (octaves are exponential). A linear slider would compress bass notes and stretch treble.
-
-2. **Pinch-to-engage, not hover** — Sound only plays while pinching. Moving your hand without pinching does nothing. This prevents accidental sound and gives explicit control, matching how a real theremin has a volume antenna you must physically approach.
-
-3. **Band-limited synthesis** — Sawtooth/square waves are generated via additive harmonics with a Nyquist cap. Naive `sign(sin(x))` sawtooth aliases badly at high frequencies and sounds harsh.
-
-4. **Threaded audio** — Audio synthesis runs on a dedicated thread via command queue. The main loop never blocks on `pygame.sndarray.make_sound()`.
-
-5. **EMA smoothing on landmarks** — All 63 landmark coordinates (21 points × 3 axes) pass through independent exponential moving average filters before any gesture logic. Eliminates jitter from MediaPipe without adding perceptible latency.
-
-6. **MIDI pitch_bend for microtonal slides** — Theremin produces continuous frequencies between MIDI notes. We send MIDI `note_on` at the nearest integer note + `pitch_bend` for the fractional part. This is how professional MIDI theremins work.
+| Task | Owner | Status | Notes |
+|------|-------|--------|-------|
+| Camera + HandTracker | Nirmit | ✅ Done | Robustness additions added |
+| EMA Smoothing | Collaborator | ✅ Done | Tested with multi-hand, hand loss |
+| Pinch Detector | Collaborator | ✅ Done | Edge detection (just_pinched, just_released) |
+| Theremin Mapper | Both | ✅ Done | Deadzones, exponential pitch, filter cutoff |
+| DSP Oscillator | Collaborator | ✅ Done | 4 waveforms, band-limited, freq accurate |
+| ADSR Envelope | Collaborator | ✅ Done | Edge cases (short signals, single sample) |
+| Audio Engine | Nirmit | ✅ Done | Threaded, DI for headless, error handling |
+| Main Loop Wiring | Both | ✅ Done | ML octave control, null-safety on MIDI |
 
 ---
 
-## 📋 Phase Breakdown
+## Phase 2: UI + Polish + Filters — ⚠️ MOSTLY DONE
 
-### Phase 1: Core Pipeline — Get Sound Playing (3-4 hours)
-**Status: ✅ COMPLETED**
-**Results: 6/6 tests pass**
+| Task | Owner | Status | Notes |
+|------|-------|--------|-------|
+| Theremin UI (freq, vol, pinch indicator) | Collaborator | ✅ Done | Draws panel, bars, engagement ring |
+| Landmark overlay on frame | Nirmit | ✅ Done | Working in main.py |
+| Lowpass Filter | Collaborator | ✅ Done | Sweep tested, dark < mid < bright |
+| Additional waveforms (saw, square, tri) | Collaborator | ✅ Done | Band-limited anti-aliased |
+| Waveform cycling (W key + indicator) | Both | ✅ Done | Working in main.py |
+| Audio Visualizer (waveform overlay) | Collaborator | ⚠️ Partial | **Module exists but never fed audio data in main.py — always draws zeros** |
 
-| Task | Owner | Files | Est. | Status |
-|------|-------|-------|------|--------|
-| 1.1 Camera + HandTracker | Nirmit | `vision/camera.py`, `vision/hand_tracker.py` | 30m | ✅ |
-| 1.2 Landmark EMA smoothing | Collaborator | `utils/smoothing.py` | 30m |
-| 1.3 Pinch detector | Collaborator | `gesture/pinch_detector.py` | 30m |
-| 1.4 Theremin mapper (X→pitch, Y→vol) | Collaborator | `gesture/theremin_mapper.py` | 1h |
-| 1.5 Audio engine (threaded, continuous) | Nirmit | `engine/audio_engine.py` | 1h |
-| 1.6 DSP oscillator (sine first) | Collaborator | `dsp/oscillator.py` | 45m |
-| 1.7 ADSR envelope | Collaborator | `dsp/envelope.py` | 30m |
-| 1.8 Main loop wiring | Nirmit | `main.py` | 45m |
-
-**Checkpoint:** Hand in camera → pinch to engage → move hand → hear pitch change. No UI yet, just terminal logs.
-
-**Dependencies:**
-- 1.1 → 1.2 → 1.3 → 1.4 (collaborator chain)
-- 1.5 depends on 1.6 + 1.7 (oscillator + envelope)
-- 1.8 depends on everything above
+### Remaining for Phase 2:
+- **[Nirmit]** Feed real audio data to `visualizer.update_waveform()` from audio engine, or capture pygame mixer output. Currently `draw_waveform()` renders but shows nothing because `update_waveform()` is never called in `main.py`.
 
 ---
 
-### Phase 2: UI + Polish + Filters (4-5 hours)
-**Status: ✅ COMPLETED**
-**Results: 7/7 tests pass**
+## Phase 3: ML + MIDI + Latency — ✅ COMPLETE
 
-| Task | Owner | Files | Est. | Status |
-|------|-------|-------|------|--------|
-| 2.1 Theremin UI (freq display, vol bar, pinch indicator) | Collaborator | `ui/theremin_ui.py` | 1.5h | ✅ |
-| 2.2 Landmark overlay on frame | Nirmit | `main.py` | 20m |
-| 2.3 Lowpass filter (finger spread → timbre) | Collaborator | `dsp/filter.py` | 45m |
-| 2.4 Additional waveforms (saw, square, triangle) | Collaborator | `dsp/oscillator.py` (extend) | 45m |
-| 2.5 Waveform cycling (W key + UI indicator) | Nirmit | `main.py` | 20m |
-| 2.6 Audio visualizer (waveform overlay) | Collaborator | `ui/visualizer.py` | 1h |
+| Task | Owner | Status | Notes |
+|------|-------|--------|-------|
+| MIDI output (pitch_bend + CC) | Both | ✅ Done | Configurable bend range via config |
+| MIDI wiring in main loop | Nirmit | ✅ Done | Null-safety, note_on/note_off |
+| Latency Profiler | Nirmit | ✅ Done | Reporting avg/max/p95 per stage |
+| ML Data Collector | Collaborator | ✅ Done | Record, save, load samples |
+| ML Gesture Classifier | Both | ✅ Done | ONNX inference, fallback mode |
+| ML wiring in main loop | Nirmit | ✅ Done | Auto-engage, stop, octave up/down |
 
-**Checkpoint:** Full theremin experience with visual feedback. Looks good in a demo.
-
----
-
-### Phase 3: ML + MIDI + Latency (4-5 hours)
-**Status: ✅ COMPLETED**
-**Results: 4/4 tests pass**
-
-| Task | Owner | Files | Est. | Status |
-|------|-------|-------|------|--------|
-| 3.1 MIDI output (pitch_bend + CC) | Collaborator | `engine/midi_output.py` | 1h | ✅ |
-| 3.2 Wire MIDI into main loop | Nirmit | `main.py` | 30m |
-| 3.3 Latency profiler + reporting | Nirmit | `engine/latency_profiler.py` | 1h |
-| 3.4 ML data collector (record gestures) | Collaborator | `gesture/gesture_classifier.py` | 1h | ✅ |
-| 3.5 Train classifier (sklearn MLP → ONNX) | Collaborator | `gesture/gesture_classifier.py` | 1.5h | ✅ |
-| 3.6 Wire ML classifier into main loop | Nirmit | `main.py` | 30m | ✅ |
-
-**Checkpoint:** MIDI streams to DAW. Latency numbers are reported. ML model classifies gestures.
+### Known Issues:
+- **ONNX export** has a version incompatibility (`onnx.FloatTensorType` deprecated in newer onnx). Training works in sklearn, ONNX export needs `skl2onnx` update. For now, the classifier runs in fallback mode without a trained model.
+- **ML model not trained** — `assets/gesture_classifier.onnx` doesn't exist yet. The classifier falls back gracefully (returns `None`). Needs real hand gesture data collection + training.
 
 ---
 
-### Phase 4: Integration + Demo (2-3 hours)
-**Goal:** Bug fixes, edge cases, demo video, README final.
+## Phase 4: Integration + Demo — ❌ NOT STARTED
 
-| Task | Owner | Est. |
-|------|-------|------|
-| 4.1 End-to-end testing + bug fixes | Nirmit | 1h |
-| 4.2 Unit tests (smoothing, debounce, oscillator, freq calc) | Collaborator | 1h |
-| 4.3 Demo video recording | Nirmit | 30m |
-| 4.4 README + GIF + final polish | Both | 30m |
-
----
-
-## 👥 Work Split
-
-```
-            NIRMIT
-            ═════
-  Phase 1: Camera, HandTracker, AudioEngine (threaded), Main loop wiring
-  Phase 2: Landmark overlay, Waveform cycling, main.py integrations
-  Phase 3: MIDI wiring, Latency profiler, ML wiring
-  Phase 4: Integration testing, bug fixes, demo video
-
-            COLLABORATOR
-            ═══════════
-  Phase 1: Smoothing, Pinch detector, Theremin mapper, DSP (oscillator + ADSR)
-  Phase 2: Theremin UI, Filter, Additional waveforms, Visualizer
-  Phase 3: MIDI output, ML data collector + classifier
-  Phase 4: Unit tests, README polish
-```
-
-### Critical Path
-
-```
-Collaborator: Smoothing → Pinch → ThereminMapper → (done with Phase 1 core)
-             Oscillator → ADSR → AudioEngine ← Nirmit waits here
-Nirmit: Camera → (waits for Collab DSP) → AudioEngine → Main loop
-```
-
-**Parallel start:** Both begin immediately. Nirmit does camera + tracker (30m). Collaborator does smoothing + pinch (1h). They converge at AudioEngine which Nirmit owns but depends on Collaborator's DSP modules.
-
-**Handoff points:**
-1. After Phase 1 — test the full pipeline together
-2. After Phase 2 — demo the visual experience
-3. After Phase 3 — test MIDI + ML end-to-end
+| Task | Owner | Status | Notes |
+|------|-------|--------|-------|
+| End-to-end testing with camera | Nirmit | ❌ Todo | Run on real hardware, verify audio output |
+| Fix mediapipe import inside loop | Nirmit | ❌ Todo | `import mediapipe as mp` at line 116 inside while loop — move to top of file |
+| Feed visualizer with real data | Nirmit | ❌ Todo | `visualizer.update_waveform()` never called in main.py |
+| Train ML model with real gestures | Both | ❌ Todo | Collect samples from webcam, train, export ONNX |
+| Fix ONNX export compatibility | Collaborator | ❌ Todo | Update `skl2onnx` usage for newer onnx API |
+| Bug fixes + edge cases | Nirmit | ❌ Todo | Camera disconnect, hand loss recovery, audio glitches |
+| Unit tests (merged suite) | Both | ❌ Todo | Nirmit's individual tests + collaborator's phase tests coexist, need unified `pytest` |
+| Demo video recording | Nirmit | ❌ Todo | Screen record working prototype |
+| README + GIF finalization | Nirmit | ❌ Todo | Add demo GIF, screenshots, installation video |
 
 ---
 
-## 🔑 Interface Contracts (agree BEFORE splitting)
+## Critical Bugs to Fix Before Demo
 
-### ThereminMapper output (gesture → engine)
-```python
-{
-    "pitch": 440.0,            # Hz (continuous float)
-    "volume": 0.7,             # 0.0–1.0
-    "engaged": True,           # pinch state
-    "filter_cutoff": 0.8       # 0.0–1.0 (finger spread → timbre)
-}
-```
-
-### AudioEngine API (thread-safe)
-```python
-audio_engine.update_theremin(frequency, volume, filter_cutoff, waveform)
-audio_engine.theremin_engage()
-audio_engine.theremin_disengage()
-audio_engine.set_waveform("sawtooth")
-```
-
-### MIDIOutput API
-```python
-midi.pitch_bend(value)        # 0–16383, 8192 = center
-midi.control_change(cc, value) # CC#7 = volume, CC#74 = filter cutoff
-midi.note_on(note, velocity)
-midi.note_off(note)
-```
-
-### PinchDetector output
-```python
-{
-    0: {  # hand index
-        "pinching": bool,
-        "just_pinched": bool,
-        "just_released": bool,
-        "center": (x, y),      # normalized coords
-        "distance": float
-    }
-}
-```
+1. **`import mediapipe as mp` inside the while loop** (`main.py:116`) — should be at top of file. Importing every frame wastes ~5ms.
+2. **Visualizer draws zeros** — `update_waveform()` is never called. Need to capture audio data from the engine or generate a synthetic waveform from current pitch.
+3. **No graceful camera disconnect** — if webcam unplugged mid-run, `camera.read_frame()` returns `None` and the loop breaks silently.
+4. **pygame.init() double-call** — `main()` calls `pygame.init()` then `AudioEngine.__init__()` also calls `pygame.mixer.init()`. Nirmit's branch fixed this (AudioEngine checks `get_init()` first), but `main()` still calls `pygame.init()` before `AudioEngine()` is created.
 
 ---
 
-## 🎯 What Makes This Resume-Worthy
+## Quick Wins (1-2 hours total)
 
-| Aspect | Details |
-|--------|---------|
-| **Novelty** | Computer vision theremin with ML gesture classification + MIDI output. No existing open-source project does all three. |
-| **DSP depth** | Band-limited synthesis, exponential pitch mapping, ADSR, real-time filtering — not just `pygame.mixer` playback |
-| **ML engineering** | Data collection → training → ONNX export → inference pipeline |
-| **Systems depth** | Threaded audio, latency profiling with p95 reporting |
-| **Standards compliance** | MIDI pitch_bend for microtonal control, ONNX model format |
-| **Measurable** | End-to-end latency benchmarks, frequency accuracy |
+These would make the biggest visual/functional impact:
+
+1. Move `import mediapipe` to top of `main.py` (5 min)
+2. Feed visualizer with synth waveform from current pitch (30 min)
+3. Add FPS counter to UI overlay (10 min)
+4. Add camera disconnect recovery (15 min)
+5. Remove duplicate `pygame.init()` (5 min)
