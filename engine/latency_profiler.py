@@ -28,7 +28,7 @@ class LatencyProfiler:
             "audio_queue": [],
         }
 
-        self._last_report = time.time()
+        self._last_report = time.perf_counter()
 
     def start_frame(self):
         """Call at the start of each frame."""

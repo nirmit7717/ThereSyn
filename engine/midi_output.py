@@ -103,7 +103,8 @@ class MIDIOutput:
         """Convert frequency (Hz) to nearest MIDI note number."""
         if freq <= 0:
             return 60
-        return int(round(12 * (2.0 ** ((freq - 440.0) / 12.0)) + 69))
+        import math
+        return int(round(69 + 12 * math.log2(freq / 440.0)))
 
     @staticmethod
     def freq_to_pitch_bend(freq: float, base_note: int) -> int:
@@ -117,12 +118,12 @@ class MIDIOutput:
         Returns:
             Pitch bend value 0-16383 (8192 = center).
         """
+        import math
         if freq <= 0 or base_note < 0 or base_note > 127:
             return 8192
         base_freq = 440.0 * (2.0 ** ((base_note - 69) / 12.0))
         if base_freq <= 0:
             return 8192
-        cents = 1200 * (2.0 ** (freq / base_freq) - 1)
-        # Map cents to pitch_bend range: ±2 semitones = ±200 cents → 0-16383
+        cents = 1200.0 * math.log2(freq / base_freq)
         bend = int(8192 + (cents / 200.0) * 8191)
         return max(0, min(16383, bend))
