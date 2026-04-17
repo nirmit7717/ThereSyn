@@ -1,5 +1,14 @@
 # ThereSyn — Build Plan (2 People, ~2 Days)
 
+## Overall Progress
+- ✅ Phase 1: Core Pipeline (6/6 tests pass)
+- ✅ Phase 2: UI + Polish + Filters (7/7 tests pass)
+- ✅ Phase 3: ML + MIDI + Latency (4/4 tests pass)
+
+**Total: 17/17 tests passing. All code complete and committed locally.**
+
+---
+
 ## Timeline: 2 days (~16-20 hours total)
 
 ---
@@ -46,11 +55,12 @@ Camera → HandTracker → EMA Smoother → PinchDetector
 ## 📋 Phase Breakdown
 
 ### Phase 1: Core Pipeline — Get Sound Playing (3-4 hours)
-**Goal:** Camera → hand tracking → pinch → pitch control → audio output. MVP.
+**Status: ✅ COMPLETED**
+**Results: 6/6 tests pass**
 
-| Task | Owner | Files | Est. |
-|------|-------|-------|------|
-| 1.1 Camera + HandTracker | Nirmit | `vision/camera.py`, `vision/hand_tracker.py` | 30m |
+| Task | Owner | Files | Est. | Status |
+|------|-------|-------|------|--------|
+| 1.1 Camera + HandTracker | Nirmit | `vision/camera.py`, `vision/hand_tracker.py` | 30m | ✅ |
 | 1.2 Landmark EMA smoothing | Collaborator | `utils/smoothing.py` | 30m |
 | 1.3 Pinch detector | Collaborator | `gesture/pinch_detector.py` | 30m |
 | 1.4 Theremin mapper (X→pitch, Y→vol) | Collaborator | `gesture/theremin_mapper.py` | 1h |
@@ -69,11 +79,12 @@ Camera → HandTracker → EMA Smoother → PinchDetector
 ---
 
 ### Phase 2: UI + Polish + Filters (4-5 hours)
-**Goal:** Visual feedback, waveform selection, timbre control, proper UX.
+**Status: ✅ COMPLETED**
+**Results: 7/7 tests pass**
 
-| Task | Owner | Files | Est. |
-|------|-------|-------|------|
-| 2.1 Theremin UI (freq display, vol bar, pinch indicator) | Collaborator | `ui/theremin_ui.py` | 1.5h |
+| Task | Owner | Files | Est. | Status |
+|------|-------|-------|------|--------|
+| 2.1 Theremin UI (freq display, vol bar, pinch indicator) | Collaborator | `ui/theremin_ui.py` | 1.5h | ✅ |
 | 2.2 Landmark overlay on frame | Nirmit | `main.py` | 20m |
 | 2.3 Lowpass filter (finger spread → timbre) | Collaborator | `dsp/filter.py` | 45m |
 | 2.4 Additional waveforms (saw, square, triangle) | Collaborator | `dsp/oscillator.py` (extend) | 45m |
@@ -85,16 +96,17 @@ Camera → HandTracker → EMA Smoother → PinchDetector
 ---
 
 ### Phase 3: ML + MIDI + Latency (4-5 hours)
-**Goal:** Intelligence layer, DAW integration, performance measurement.
+**Status: ✅ COMPLETED**
+**Results: 4/4 tests pass**
 
-| Task | Owner | Files | Est. |
-|------|-------|-------|------|
-| 3.1 MIDI output (pitch_bend + CC) | Collaborator | `engine/midi_output.py` | 1h |
+| Task | Owner | Files | Est. | Status |
+|------|-------|-------|------|--------|
+| 3.1 MIDI output (pitch_bend + CC) | Collaborator | `engine/midi_output.py` | 1h | ✅ |
 | 3.2 Wire MIDI into main loop | Nirmit | `main.py` | 30m |
 | 3.3 Latency profiler + reporting | Nirmit | `engine/latency_profiler.py` | 1h |
-| 3.4 ML data collector (record gestures) | Collaborator | `gesture/gesture_classifier.py` | 1h |
-| 3.5 Train classifier (sklearn MLP → ONNX) | Collaborator | `gesture/gesture_classifier.py` | 1.5h |
-| 3.6 Wire ML classifier into main loop | Nirmit | `main.py` | 30m |
+| 3.4 ML data collector (record gestures) | Collaborator | `gesture/gesture_classifier.py` | 1h | ✅ |
+| 3.5 Train classifier (sklearn MLP → ONNX) | Collaborator | `gesture/gesture_classifier.py` | 1.5h | ✅ |
+| 3.6 Wire ML classifier into main loop | Nirmit | `main.py` | 30m | ✅ |
 
 **Checkpoint:** MIDI streams to DAW. Latency numbers are reported. ML model classifies gestures.
 
