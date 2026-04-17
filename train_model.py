@@ -198,9 +198,9 @@ def collect(samples_path: str = "assets/samples.npz"):
         # Draw landmarks
         for hand in hands:
             if "raw_landmarks" in hand:
-                mp.solutions.drawing_utils.draw_landmarks(
+                np.solutions.drawing_utils.draw_landmarks(
                     frame, hand["raw_landmarks"],
-                    mp.solutions.hands.HAND_CONNECTIONS,
+                    np.solutions.hands.HAND_CONNECTIONS,
                 )
 
         # Status overlay
