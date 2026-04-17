@@ -78,16 +78,17 @@
 | Fix train_model.py drawing utils bug | Nirmit | ✅ Done | Replaced np.solutions.* with mediapipe and added import guard |
 | Make sklearn-safe training path | Nirmit | ✅ Done | GestureClassifier.train skips when sklearn missing; tests pass headlessly |
 | UI FPS counter hookup | Nirmit | ✅ Done | main passes clock.get_fps() to UI |
+| Headless smoke-run script + test | Nirmit | ✅ Done | headless_smoke.py and tests/test_headless_smoke.py added for CI validation |
 
 ### ❌ Remaining (Nirmit's Part)
 
 | Task | Owner | Status | Notes |
 |------|-------|--------|-------|
-| End-to-end testing with real camera | Nirmit | ❌ Todo | Run on real hardware, verify audio output |
+| End-to-end testing with real camera | Nirmit | ❌ Todo | Run on real hardware, verify audio output (runbook added) |
 | Collect real gesture samples | Nirmit | ❌ Todo | `python train_model.py --collect`, press 1-7 to set label, SPACE to record |
 | Train model with real data | Both | ❌ Todo | After collecting: `python train_model.py --train` |
-| Demo video recording | Nirmit | ❌ Todo | Screen record working prototype |
-| README + GIF finalization | Nirmit | ❌ Todo | Add demo GIF, screenshots, architecture diagram |
+| Demo video recording | Nirmit | ❌ Todo | Screen record working prototype (demo tips added to README) |
+| README + GIF finalization | Nirmit | ✅ In Progress | Added recording tips and GIF pipeline; finalize with example GIF later |
 
 ### How to Collect Real Gesture Data
 

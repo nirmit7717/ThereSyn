@@ -121,4 +121,21 @@ MIT
 
 ---
 
+## ✅ Real-hardware runbook
+
+See REAL_HARDWARE_RUNBOOK.md for step-by-step verification on a machine with webcam, audio output, and optional MIDI routing (virtual loopback). It covers collecting samples, training the ONNX gesture model, verifying inference, and demo-recording tips using OBS/ffmpeg.
+
+## 🎬 Recording a demo / GIF
+
+1. Record 10–30s of the application using OBS (window or display capture). Capture system audio so the theremin sound is included.
+2. Export a short MP4 (H.264). For GIFs, downsample to 15 fps and scale to ~800 px wide.
+   Example:
+
+   ffmpeg -i demo.mp4 -vf "fps=15,scale=800:-1:flags=lanczos" -y demo-15fps.gif
+   gifsicle -O3 --colors 256 demo-15fps.gif -o demo-optimized.gif
+
+3. Keep GIFs short (5–12s) for README use. Host large media externally if necessary.
+
+---
+
 Built by [Nirmit](https://github.com/nirmit7717)
