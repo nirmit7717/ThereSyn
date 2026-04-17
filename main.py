@@ -10,6 +10,7 @@ Orchestrates the full pipeline:
 import time
 import numpy as np
 import pygame
+import mediapipe as mp
 
 from config import (
     CAMERA_INDEX, FRAME_WIDTH, FRAME_HEIGHT, TARGET_FPS,
@@ -33,24 +34,27 @@ from engine.latency_profiler import LatencyProfiler
 from ui.theremin_ui import ThereminUI
 from ui.visualizer import AudioVisualizer
 
+# MediaPipe drawing helpers (imported once)
+_mp_drawing = mp.solutions.drawing_utils
+_mp_hands = mp.solutions.hands
+
 
 def main():
     log = Logger("ThereSyn")
 
-    # === Init pygame (centralized) ===
+    # === Init pygame (centralized — AudioEngine checks get_init() before re-init) ===
     pygame.init()
-    pygame.mixer.pre_init(44100, -16, 2, 512)
-    pygame.mixer.init()
-    pygame.mixer.set_num_channels(32)
     screen = pygame.display.set_mode((FRAME_WIDTH, FRAME_HEIGHT))
     pygame.display.set_caption("ThereSyn — AR Theremin-Synthesizer")
     clock = pygame.time.Clock()
+    font_fps = pygame.font.SysFont("monospace", 14)
 
     # === Vision ===
     try:
         camera = Camera(CAMERA_INDEX, FRAME_WIDTH, FRAME_HEIGHT)
     except Exception as e:
         log.error(f"Camera access failed: {e}")
+        pygame.quit()
         return
 
     hand_tracker = HandTracker()
@@ -75,9 +79,8 @@ def main():
     waveform_cycle = ["sine", "sawtooth", "square", "triangle"]
     waveform_idx = 0
     system_debouncer = Debouncer(debounce_time=0.5)
-
-    # ML-driven octave offset (in semitones)
     octave_offset = 0
+    consecutive_dropped_frames = 0
 
     log.info("ThereSyn started. Press ESC to quit.")
     log.info("Controls: Pinch to engage | Move hand for pitch/vol | W = cycle waveform | ESC = quit")
@@ -91,8 +94,14 @@ def main():
 
         frame = camera.read_frame()
         if frame is None:
-            log.warn("Failed to read frame")
-            break
+            consecutive_dropped_frames += 1
+            if consecutive_dropped_frames > 30:
+                log.error("Camera disconnected (30 consecutive dropped frames). Stopping.")
+                break
+            # Skip this frame, don't crash
+            clock.tick(TARGET_FPS)
+            continue
+        consecutive_dropped_frames = 0
 
         # --- Events ---
         for event in pygame.event.get():
@@ -110,14 +119,13 @@ def main():
         # --- Vision pipeline ---
         hands_data = hand_tracker.process_frame(frame)
 
-        # Draw landmarks on raw frame (before smoothing) for visual feedback
+        # Draw landmarks on raw frame for visual feedback
         for hand in hands_data:
             if "raw_landmarks" in hand:
-                import mediapipe as mp
-                mp.solutions.drawing_utils.draw_landmarks(
+                _mp_drawing.draw_landmarks(
                     frame,
                     hand["raw_landmarks"],
-                    mp.solutions.hands.HAND_CONNECTIONS,
+                    _mp_hands.HAND_CONNECTIONS,
                 )
 
         smoothed = smoother.smooth(hands_data)
@@ -127,22 +135,19 @@ def main():
         if latency_profiler:
             latency_profiler.mark("vision")
 
-        # --- ML gesture classification (optional: auto-engage features) ---
+        # --- ML gesture classification ---
         ml_result = None
         if gesture_classifier and smoothed:
             ml_result = gesture_classifier.classify(smoothed)
             if ml_result:
                 g = ml_result.get("gesture")
                 conf = ml_result.get("confidence", 0.0)
-                # ML override: force disengage
                 if g == "stop" and conf >= gesture_classifier.confidence_threshold:
                     for pid in pinch_state:
                         pinch_state[pid]["pinching"] = False
-                # ML auto-engage (if configured and confident)
                 elif g == "theremin_engage" and conf >= gesture_classifier.confidence_threshold:
                     for pid in pinch_state:
                         pinch_state[pid]["pinching"] = True
-                # ML octave controls (debounced)
                 elif g in ("octave_up", "octave_down") and conf >= gesture_classifier.confidence_threshold:
                     if system_debouncer.can_trigger(g):
                         if g == "octave_up":
@@ -157,21 +162,17 @@ def main():
         pinch_pos = None
 
         if smoothed:
-            # Use primary hand (first detected)
             hand_landmarks = smoothed[0]["landmarks"]
             engaged = pinch_state.get(0, {}).get("pinching", False)
 
             theremin_data = theremin_mapper.map_hand(hand_landmarks, engaged)
 
-            # Get pinch position in pixel coords for UI
             if 0 in pinch_state:
                 cx, cy = pinch_state[0]["center"]
                 pinch_pos = (int(cx * FRAME_WIDTH), int(cy * FRAME_HEIGHT))
 
-            # Apply octave offset (from ML) to pitch
             adj_pitch = theremin_data["pitch"] * (2 ** (octave_offset / 12.0))
 
-            # Send to audio + MIDI
             audio_engine.update_theremin(
                 frequency=adj_pitch,
                 volume=theremin_data["volume"],
@@ -191,6 +192,17 @@ def main():
                 if midi_output and midi_output.enabled:
                     midi_output.pitch_bend(8192)
 
+        # --- Feed visualizer ---
+        if theremin_data:
+            visualizer.update_from_theremin(
+                frequency=theremin_data["pitch"],
+                volume=theremin_data["volume"],
+                waveform=current_waveform,
+                filter_cutoff=theremin_data["filter_cutoff"],
+            )
+        else:
+            visualizer.update_from_theremin(0, 0)
+
         # --- Profiler: gesture + audio done ---
         if latency_profiler:
             latency_profiler.mark("audio_queue")
@@ -207,10 +219,19 @@ def main():
         if theremin_data:
             theremin_ui.draw(frame_surf, theremin_data, pinch_pos)
 
-        # Waveform visualizer
-        visualizer.draw_waveform(frame_surf, x=0, y=0)
+        # Waveform visualizer (bottom of screen)
+        visualizer_y = FRAME_HEIGHT - 60
+        visualizer.draw_waveform(frame_surf, x=0, y=visualizer_y)
 
-        # Screen
+        # FPS counter
+        fps = clock.get_fps()
+        fps_text = font_fps.render(f"FPS: {fps:.0f}", True, (200, 200, 200))
+        frame_surf.blit(fps_text, (FRAME_WIDTH - 80, 70))
+
+        # Waveform label
+        wf_label = font_fps.render(f"Wave: {current_waveform}", True, (180, 220, 255))
+        frame_surf.blit(wf_label, (FRAME_WIDTH - 130, 90))
+
         screen.blit(frame_surf, (0, 0))
         pygame.display.flip()
 

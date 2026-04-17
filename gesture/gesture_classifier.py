@@ -32,7 +32,17 @@ class GestureClassifier:
             return
         try:
             import onnxruntime as ort
+            import onnx
             self._session = ort.InferenceSession(self.model_path)
+
+            # Read labels from model metadata (written during training)
+            onnx_model = onnx.load(self.model_path)
+            metadata = {m.key: m.value for m in onnx_model.metadata_props}
+            if "gesture_labels" in metadata:
+                import json
+                self._labels = json.loads(metadata["gesture_labels"])
+                print(f"[ML] Loaded labels from model: {self._labels}")
+
             print(f"[ML] Loaded model from {self.model_path}")
         except ImportError:
             print("[ML] onnxruntime not installed — running without ML")
@@ -68,14 +78,29 @@ class GestureClassifier:
 
         try:
             outputs = self._session.run(None, {"input": input_array})
-            probabilities = outputs[0][0]
-            best_idx = int(np.argmax(probabilities))
-            confidence = float(probabilities[best_idx])
+
+            # outputs[0] = predicted class labels (1D array)
+            # outputs[1] = probabilities (2D array, shape [1, n_classes])
+            #   OR outputs[1] = zipmap list (if zipmap not disabled)
+            if len(outputs) < 2:
+                return None
+
+            pred_label = int(outputs[0][0])
+            prob_data = outputs[1][0]
+
+            if isinstance(prob_data, dict):
+                # Zipmap format: {0: prob, 1: prob, ...}
+                confidence = float(prob_data.get(pred_label, 0.0))
+            elif isinstance(prob_data, np.ndarray):
+                # Raw probability array
+                confidence = float(prob_data[pred_label])
+            else:
+                confidence = float(prob_data)
 
             if confidence >= self.confidence_threshold:
-                if best_idx < len(self._labels):
+                if pred_label < len(self._labels):
                     return {
-                        "gesture": self._labels[best_idx],
+                        "gesture": self._labels[pred_label],
                         "confidence": confidence,
                     }
             return None
